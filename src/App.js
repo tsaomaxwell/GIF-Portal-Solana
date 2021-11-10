@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import twitterLogo from './assets/twitter-logo.svg';
 import idl from './idl.json';
-import { Connection, PublicKey, clusterApiUrl} from '@solana/web3.js';
+import { Connection, PublicKey, clusterApiUrl, Transaction} from '@solana/web3.js';
 import {
   Program, Provider, web3
 } from '@project-serum/anchor';
@@ -142,6 +142,45 @@ const App = () => {
     }
   };
 
+  const createTransferTransaction = async (to) => {
+    const provider = window.solana;
+    const connection = new Connection(clusterApiUrl('devnet'));
+    if (!provider.publicKey) {
+      return;
+    }
+    let transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: provider.publicKey,
+        toPubkey: new PublicKey(to),
+        lamports: 100,
+      })
+    );
+    console.log(provider.publicKey);
+    transaction.feePayer = provider.publicKey;
+    const anyTransaction = transaction;
+    anyTransaction.recentBlockhash = (
+      await connection.getRecentBlockhash()
+    ).blockhash;
+    console.log(transaction);
+    return transaction;
+  };
+
+  const sendTransaction = async (to) => {
+    const transaction = await createTransferTransaction(to);
+    const provider = window.solana;
+    const connection = new Connection(clusterApiUrl('devnet'));
+    if (transaction) {
+      try {
+        let signed = await provider.signTransaction(transaction);
+        let signature = await connection.sendRawTransaction(signed.serialize());
+        await connection.confirmTransaction(signature);
+        alert(`Sent a tip to ${to.toString()}`);
+      } catch (err) {
+        console.log(err);
+      }
+    }
+  };
+
   const renderNotConnectedContainer = () => (
     <button
       className="cta-button connect-wallet-button"
@@ -177,6 +216,9 @@ const App = () => {
           <div className="gif-item" key={index}>
             <img src={item.gifLink} />
             Posted by: {item.userAddress.toString()}
+            <button className="cta-button submit-gif-button" onClick = {() => sendTransaction(item.userAddress)}>
+              Send Tip
+            </button>
           </div>
         ))}
     </div>
